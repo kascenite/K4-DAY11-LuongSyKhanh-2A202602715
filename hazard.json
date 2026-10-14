@@ -1,0 +1,47 @@
+{
+ "format": "avsim-studio/1",
+ "params": {
+  "cutT0": 2.9167811774756016,
+  "cutDur": 5.6922710450822835,
+  "cutV": 13.578021425192654,
+  "cutDs": -3.014982453420627,
+  "pedT0": 11.177976362400141,
+  "pedV": 1.4163322018708917,
+  "busGo": 20.8002798151471,
+  "tgT": 1.4215126597818468,
+  "cutGap": 10.381893331993922,
+  "pedGap": 4.049334479610681,
+  "mu": 0.8,
+  "pedLook": 1,
+  "cutBrake": 0.0,
+  "civil": true
+ },
+ "policy": {},
+ "hazards": [
+  {
+   "x": 163,
+   "side": "S",
+   "v": 1.99,
+   "t0": 0.0,
+   "trig": 36,
+   "type": "ped"
+  }
+ ],
+ "ego": "planner",
+ "space": {
+  "h0_x": [
+   130,
+   300
+  ],
+  "h0_v": [
+   1.0,
+   2.2
+  ],
+  "h0_trig": [
+   10,
+   40
+  ]
+ },
+ "exposure": 0.02,
+ "why": "Người băng ngang giữa dãy phố, bước ra từ lề phải (không có vạch, sau vạch x=122). space: h0_x [130,300] = cả đoạn phố phía đông vạch qua đường tới gần cuối đường (giới hạn 320); h0_v [1.0,2.2] m/s = từ đi chậm (người già ~1.0) tới đi vội/rảo bước, dưới ngưỡng chạy 2.5 m/s của is_feasible (tốc độ đi bộ thường ~1.2-1.5 m/s); h0_trig [10,40] m = người bước xuống khi xe ta còn cách 10-40 m, tức 1-3 s ở 12.5 m/s, đúng khoảng người đi bộ đánh giá sai khe. exposure 0.02/chuyến = GIẢ ĐỊNH: khoảng 1 trong 50 chuyến có một người băng ngang ngoài vạch trong tầm 40 m phía trước, trên phố đô thị hai làn mỗi chiều; cần thay bằng đếm từ log dashcam/xe thật. Căn cứ để chọn rắc rối: NHTSA (Traffic Safety Facts, Pedestrians) cho thấy phần lớn người đi bộ tử vong ở vị trí không phải giao lộ."
+}
