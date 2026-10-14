@@ -1,52 +1,121 @@
-MSSV: 
+MSSV: 202602715
 
 # Lab 11 · Scenario Forge — báo cáo
 
-Mỗi câu: trả lời ngắn, **trích số từ `evidence/`** (ghi tên file và trường, ví dụ `mc.json: crashes = 4`). Grader chạy lại với MSSV của bạn; số không khớp `evidence/` thì mất điểm phần D (RUBRIC), và câu dựa trên số sai khó được điểm đầy đủ. Không cần văn hay: một bảng nhỏ và hai, ba câu giải thích là đủ.
-
-Thị trấn của bạn (`meta.json: _run.town`): 
+Thị trấn của bạn (`meta.json: _run.town`): B. Mọi bước chạy với ngân sách đầy đủ.
 
 ## 1. Phát lại log có trung thực không? (bước A)
 
-Trong `replay.json`: bao nhiêu kịch bản bị bỏ vì người lái gây va chạm, bao nhiêu va chạm khi planner chạy trên log phát lại, bao nhiêu trong thế giới phản ứng, theo từng loại tiếp xúc. Giải thích vì sao phần lớn va chạm của "phát lại" là `rear`, và vì sao đó là va chạm **giả**. Chọn một kịch bản trong `replay_only` và nói chuyện gì đã xảy ra.
+`replay.json`: bỏ 1 log do người lái tự va chạm. Phát lại có 104 va chạm, gồm 92 `rear` và 12 `side`. Thế giới phản ứng có 1 va chạm `front`. Không kịch bản nào va chạm ở cả hai (`crash_in_both` = 0).
+
+Planner giữ khoảng cách 1,6 s, xa hơn người lái trong log (1,1 s), và giảm tốc gần vạch bị che. Khi phát lại, xe bám đuôi TG chạy đúng quỹ đạo cũ, không biết xe ta phanh sớm hơn nên tông vào đuôi. Đó là va chạm giả, vì TG thật sẽ phanh theo.
+
+Ví dụ `replay_only[0]`, kịch bản 9 (R-01, `shots/q1_replay_only.png`): TG tông đuôi lúc 16,6 s. Trong thế giới phản ứng không va chạm, TTC nhỏ nhất 2,71 s.
 
 ## 2. Kịch bản bất khả thi (bước B)
 
-Liệt kê các luật trong `is_feasible` và căn cứ vật lý của từng luật (ma sát, gia tốc, tốc độ người). Trong `hunt.json`, cuộc săn nào sinh nhiều kịch bản bất khả thi nhất, và vì sao CEM lại bị kéo về phía đó? Điều gì xảy ra với ước lượng nếu bạn **đếm** chúng là va chạm?
+| Luật | Căn cứ |
+|---|---|
+| (π / cutDur)² · 3,5 / 2 > μg | chuyển làn quá nhanh cần lực ngang vượt ma sát lốp |
+| cutBrake > μg | không xe nào phanh mạnh hơn ma sát cho phép |
+| pedV > 2,5 m/s | đó là chạy, người đi bộ thường đi 1,2 đến 1,5 m/s |
+| cutV ngoài (0, 22] m/s | xe đứng yên không chuyển làn được, 22 m/s quá nhanh cho phố |
+
+`hunt.json: infeasible`: `rear_ended` 10, `cut_in` 6, `crosswalk_block` 5, `bus_bypass` 3. Cuộc săn `rear_ended` cao nhất vì điểm của nó tăng khi xe ta phải phanh gấp, nên CEM bị kéo về vùng phanh hay chuyển làn vượt μg. Đếm chúng là va chạm sẽ thổi phồng ước lượng bằng những tình huống không thể xảy ra.
 
 ## 3. Monte Carlo cho bạn biết gì (bước C1)
 
-`mc.json`: k, n, p̂ và khoảng Wilson 95 %. Với p̂ đó, cần bao nhiêu lần chạy để khoảng tin cậy hẹp lại còn ±20 % của p? Có kiểu thất bại nào **chưa hề xuất hiện** trong 3 000 lần chạy không? Con số đúng cần báo cho kiểu đó là gì?
+`mc.json`: k = 8, n = 3000, p̂ = 2,67e-3, Wilson 95 % [1,35e-3; 5,25e-3], cả 8 vụ là `bus_bypass`.
+
+Để có ±20 % của p cần n ≈ 96/p ≈ 36 000 lần chạy.
+
+`cut_in`, `crosswalk_block`, `rear_ended`, `other` chưa xuất hiện. Báo cận trên Wilson 1,28e-3 cho mỗi kiểu, không báo 0.
 
 ## 4. Importance sampling, ESS và độ suy biến (bước C3)
 
-Bảng: với từng kiểu và từng seed trong `estimate.json`, ghi `p`, `hits`, `ess`, `top_share`. Ba seed có đồng ý với nhau không, và có đồng ý với Monte Carlo không? Ở đâu `top_share` lớn (> 0,5), và vì sao khi đó con số thực ra chỉ là trọng số của một mẫu? So ngân sách (`budget`) với số lần chạy Monte Carlo cần để có cùng độ chính xác. Phần `other` trong tổng lấy từ đâu, và vì sao không săn nó?
+`estimate.json`, 600 mẫu mỗi kiểu mỗi seed:
+
+| seed | kiểu | p | hits | ess | top_share |
+|---|---|---|---|---|---|
+| 0 | bus_bypass | 1,13e-3 | 55 | 121 | 0,23 |
+| 0 | crosswalk_block | 7,71e-6 | 78 | 146 | 0,45 |
+| 1 | bus_bypass | 1,11e-3 | 49 | 115 | 0,14 |
+| 1 | crosswalk_block | 6,37e-6 | 75 | 130 | 0,42 |
+| 2 | bus_bypass | 8,86e-3 | 57 | 141 | 0,90 |
+| 2 | crosswalk_block | 2,73e-4 | 90 | 151 | 0,98 |
+
+`cut_in` và `rear_ended` không có hit ở cả 3 seed, báo `upper_zero_hits` = 0,025. `total`: 1,13e-3, 1,11e-3, 9,13e-3.
+
+Seed 0 và 1 khớp nhau và thấp hơn Monte Carlo khoảng 2,4 lần, đúng như README cảnh báo. Seed 2 lệch 8 đến 40 lần vì `top_share` lên 0,90 và 0,98: một mẫu mang gần hết ước lượng, nên con số chỉ là trọng số của mẫu đó.
+
+`budget` = 16 800 lần chạy. Với `crosswalk_block`, p ≈ 7,7e-6 và sai số tương đối 0,49, Monte Carlo cần khoảng 550 000 lần để chính xác như vậy, gấp 33 lần.
+
+`other` lấy từ `mc.json` (0 trên 3000, cận 1,28e-3). Không săn nó vì không có điểm nguy hiểm chung để nhắm.
 
 ## 5. Các kiểu thất bại (bước C2 + 3D)
 
-Mỗi kiểu bạn tìm thấy: một ảnh chụp trình xem 3D (chương 9) ở đúng lúc va chạm, và một câu mô tả chuỗi sự kiện (ai thấy gì, ai chờ gì). Kiểu nào cuộc săn **không** tìm thấy, và bạn tin điều đó ở mức nào? Nếu chỉ chạy **một** cuộc săn chung cho mọi kiểu thì điều gì xảy ra (gợi ý: `hunt.json: found` của từng cuộc săn)?
+`bus_bypass` (B-01, `shots/q5_bus_bypass.png`, 13,0 s): đường ướt. Xe tím C2 bị xe buýt chắn nên lách sang làn xe ta với khe 9,4 m. Xe ta nhận ra C2 quá muộn và tông vào.
+
+`crosswalk_block` (C-01, `shots/q5_crosswalk_block.png`, 19,5 s): người đi bộ bước ra từ sau xe buýt mà không ngó, xe ta cũng bị che. Xe ta phanh gấp trên đường ướt và dừng với thân xe nằm trên vạch.
+
+Không tìm thấy `cut_in` và `rear_ended`: cả hai cuộc săn đều trôi về `bus_bypass` hoặc `crosswalk_block` (`hunt.json: found`). Tôi tin kết luận này ở mức thấp, vì cận trên vẫn còn 1,28e-3.
+
+Một cuộc săn chung sẽ co về `bus_bypass`, kiểu dễ va chạm nhất, và gần như chắc chắn bỏ sót `crosswalk_block`.
 
 ## 6. Sửa planner (bước E + 3D)
 
-`fix.json`: policy được chọn, `fail` và `fail_hi` trên TRAIN, trên TEST (`fail_hi_seen` và `fail_hi`), và của policy gốc trên TEST; vì sao `fail_hi` của bản sửa có thể lớn hơn `fail` của policy gốc dù bản sửa tốt hơn thật? quãng đường và số lần phanh gấp. Một ảnh chụp 3D có **bóng mờ** (policy gốc) cho một kịch bản mà bản sửa tránh được. Có núm chỉnh nào "nghe thì an toàn hơn" nhưng thực tế làm tăng thất bại? Giải thích bằng cách thế giới phản ứng lại.
+Policy chọn: `cutinLat` = 3,3.
+
+| `fix.json` | fail | fail_hi_seen | fail_hi | quãng đường, m | phanh gấp |
+|---|---|---|---|---|---|
+| gốc, TRAIN | 3,07e-4 | 5,72e-4 | 5,72e-4 | 211,8 | 8,1 |
+| sửa, TRAIN | 3,32e-5 | 9,43e-5 | 9,43e-5 | 211,5 | 7,7 |
+| sửa, TEST | 7,55e-7 | 1,59e-6 | 3,88e-2 | 213,4 | 8,0 |
+| gốc, TEST | 8,54e-4 | 1,67e-3 | 2,95e-3 | 213,6 | 8,8 |
+
+Trên TEST, bản sửa xoá hết `bus_bypass` (gốc có 21 hit) mà chỉ mất 0,1 % quãng đường. `fail_hi` của nó vẫn lớn hơn `fail` của gốc vì `bus_bypass` thành `unseen`, nhận cận 3/(0,2 · 400) = 0,0375. 400 mẫu không đủ chứng minh một kiểu đã biến mất.
+
+Ảnh `shots/q6_fix_ghost.png` (B-01): xe đặc là policy gốc, tông C2; bóng mờ là bản sửa, đi qua an toàn.
+
+Núm phản tác dụng: `T` = 2,0 và `cautionV` = 6,5 đều làm fail tăng khoảng 10 lần trên TRAIN (3,04e-3 và 3,01e-3). Tôi đoán xe ta để khoảng trống lớn hơn hoặc chậm lại cạnh xe buýt, nên C2 có thêm khe để chen vào.
 
 ## 7. Từ mô phỏng ra đường thật
 
-Phân phối tự nhiên trong `space.py` là giả định. Chọn **ba** giả định ảnh hưởng nhiều nhất đến con số của bạn (ví dụ khe chấp nhận của xe chuyển làn, tỉ lệ người đi bộ ngó qua xe buýt, ma sát đường ướt). Với mỗi cái: dữ liệu thật nào sẽ thay nó, lấy từ đâu, và nếu nó sai thì con số của bạn sai theo hướng nào?
+| Giả định | Dữ liệu thật | Nếu sai |
+|---|---|---|
+| Khe chấp nhận khi chuyển làn | quỹ đạo từ highD, NGSIM, Waymo Open Motion | người thật chấp nhận khe nhỏ hơn thì `bus_bypass` đang bị thấp |
+| Tỉ lệ người ngó qua xe buýt | video ở điểm dừng xe buýt gần vạch | ít người ngó hơn thì `crosswalk_block` đang bị thấp |
+| Tỉ lệ đường ướt, μ | dữ liệu thời tiết, đo ma sát mặt đường | ướt thường hơn thì cả hai kiểu đều đang bị thấp |
 
 ## 8. Giới hạn
 
-Ba điều mà xác suất bạn báo **không** nói, ví dụ: thế giới chỉ có một con phố; người lái chỉ là IDM; cảm biến hoàn hảo trừ phần bị xe buýt che. Nếu được thêm một tuần, bạn sẽ đo gì tiếp?
+Chỉ có một con phố với một xe buýt và một vạch qua đường. Người lái khác đều là IDM, không ai mất tập trung hay vi phạm luật. Cảm biến hoàn hảo, trừ phần bị xe buýt che.
+
+Thêm một tuần, tôi sẽ chạy nhiều seed hơn để xem IS hội tụ về đâu, săn lại `cut_in` và `rear_ended` bằng điểm khác, và thử logic mới ở câu 9.
 
 ## 9. Rắc rối của bạn (bước G + chương 10)
 
-- **Rắc rối:** bạn dựng gì, và ngoài đời nó giống tình huống nào.
-- **Căn cứ:** vì sao bạn nghĩ planner sẽ xử lý kém.
-- **Giả định:** `space` và `exposure` lấy từ đâu (`hazard.json: why`).
-- **Kết quả**, theo `mine.json`:
-  - số va chạm `avoidable` (tránh được bằng phanh hết cỡ, biết trước), `unavoidable`, `unattributed`, và `low_speed`, với policy gốc và với policy bạn chọn; `accepted` (bao nhiêu phần `space` của bạn là khả thi);
-  - P(lỗi planner | rắc rối) kèm khoảng Wilson;
-  - tần suất mỗi chuyến, đặt cạnh tần suất lách xe buýt của bạn.
-- **Hình:** một ảnh chương 9 hoặc 10 ở lúc va chạm.
-- **Bạn tự lái thì sao:** nếu bạn đã thử lái, bạn tránh được không, và bạn làm gì khác planner?
-- **Cách sửa:** núm chỉnh nào sửa được rắc rối này? Nếu không núm nào sửa được, planner cần thêm **logic gì** (mô tả, không cần code)?
+Rắc rối: người băng ngang giữa phố từ lề phải, không có vạch. Planner chỉ dự đoán người đi bộ P1 ở vạch, nên tôi đoán nó sẽ phản ứng muộn với người ở chỗ khác.
+
+Giả định (`hazard.json`): vị trí 130 đến 300 m, tốc độ 1,0 đến 2,2 m/s, bước ra khi xe còn cách 10 đến 40 m. `exposure` = 0,02 mỗi chuyến là giả định của tôi, cần thay bằng số đếm từ dashcam.
+
+`mine.json`, `accepted` = 0,991:
+
+| | gốc | bản sửa |
+|---|---|---|
+| `avoidable` | 17 | 17 |
+| `unavoidable` | 0 | 0 |
+| `unattributed` | 2 | 0 |
+| `low_speed` | 1 | 1 |
+| P(lỗi \| rắc rối) | 1,14e-2 [7,15e-3; 1,82e-2] | như bên |
+| mỗi chuyến | 2,29e-4 | như bên |
+
+Hiếm hơn `bus_bypass` khoảng 12 lần mỗi chuyến, nhưng khi xảy ra thì planner hỏng 1,1 % số lần, và bản sửa không giúp được.
+
+`avoidable` là phanh hết cỡ ngay lúc thấy thì tránh được, chỉ loại này tính là lỗi planner. `unattributed` là va chạm thường của thị trấn, xảy ra trước khi người băng ngang xuất hiện. Chuẩn "tránh được" lạc quan vì giả định phản ứng tức thì và phanh tối đa, nên nó đếm dư lỗi planner; nhưng nó chỉ thử phanh, không thử đánh lái, nên cũng có thể đếm thiếu.
+
+Hình: `shots/q9_jaywalker_studio.png` (chương 10, 20,3 s, khớp `mine.json: exact`) và `shots/q9_jaywalker_lab.png` (GB-01, 19,4 s).
+
+Tự lái: người đi bộ hiện ra lúc 17,05 s, nhưng planner vẫn tăng tốc theo xe phía trước và đến 20,0 s mới phanh. Tôi thử một người lái giả lập phanh sau 0,5 đến 1,5 s, ở mức 4 đến 7,5 m/s²: cả 9 tổ hợp đều tránh được.
+
+Cách sửa: không núm nào sửa được, vì `pedBuffer` và `cautionV` chỉ áp dụng cho P1. Planner cần dự đoán mọi người đi bộ đang đi về phía làn mình trong khoảng 50 m phía trước, rồi nhường như với P1.
